@@ -4,7 +4,7 @@ for name in $(ls); do
   grep ">" $name | wc -l; 
 done
 
-grep -ni "^>" *.fasta | grep -ni "nif" > grepNif.txt
+grep -ni "^>" allproteins.fasta | grep -i "nif" > grepNif.txt
 
 # get unique ids of proteins per species
 for name in $(ls *.fasta); do
@@ -52,11 +52,10 @@ done
 grep ">" allproteins.fasta | sort | uniq -c > file.txt # count repetitive IDs
 grep -v "1 >" file.txt # show IDs with count > 1
 grep -n "<ID>" allproteins.fasta # show which line has the repetitive IDs
-sed 'm,n!d' file # print the lines from m to n
-sed -i 'm,nd' file # delete lines ranging from m to n
+sed 'm,n!d' file # print the lines from m to n only
+sed -i 'm,nd' file # delete lines ranging from m to n only
 # makeblastdb of all 10 protein sets
 makeblastdb -in allproteins.fasta -dbtype prot -title "Cyanobacteria 10 taxa genome-wide proteins" -parse_seqids -hash_index -out cyano_prot
-
 
 # extract sequences from fasta file by ID
 extractseq -sequence fasta::"inputfile":"seqid" -outseq "outfile" -auto
@@ -73,3 +72,44 @@ for protein in {WP_012164843.1,WP_012167703.1,WP_006623986.1,WP_007307728.1,WP_0
   extractseq -sequence fasta::$input:$protein -outseq $outfile1 -auto
   blastp -query $outfile1 -db $database >> $outfile2
 done
+
+#---------------19/04/2022
+extractseq -sequence fasta::allproteins.fasta:WP_007304273.1 -outseq WP_007304273.1.fasta -auto
+blastp -query WP_007304273.1.fasta -db cyano_prot >> WP_007304273.1.out
+
+# search for reductase
+grep -ni reductase allproteins.fasta | grep -v oxidoreductase | grep -i nitr > grepReductase.txt
+
+# search for nitrogenase iron
+grep -ni "nitrogenase iron" allproteins.fasta | grep -vi nif > grepNitrogenaseIron.txt
+# then do blast search for the nitrogenase iron proteins
+for protein in {WP_007305800.1,WP_012595104.1,WP_009784199.1,WP_006195291.1,WP_013192381.1,WP_013192322.1,WP_013190628.1}; do
+  input="../proteinsets/allproteins.fasta"
+  database="../proteinsets/cyano_prot"
+  outfile1="${protein}.fasta"
+  outfile2="nitrIron_blast.txt"
+  echo -e "Processing sequence ID $protein"
+  extractseq -sequence fasta::$input:$protein -outseq $outfile1 -auto
+  blastp -query $outfile1 -db $database >> $outfile2
+done
+# search for one of the proteins in all iv orthogroups
+for iv in $(ls); do
+  echo $iv >> nitIronsearch.txt;
+  grep -ni 'WP_007305800.1' $iv/Results*/Orthogroups.csv >> nitIronsearch.txt;
+  echo -e "\n" >> nitIronsearch.txt;
+done
+
+#----------processing after getting Hamming distance
+hd="hd1"
+hdout="${hd}.txt"
+hdortho="${hd}_orthogroups.txt"
+# get the orthogroup IDs of that HD score
+grep $hd iv1.3.out.txt | cut -f1 > temp.txt
+# remove quotation marks on the IDs
+for g in $(cat temp.txt); do
+	sed 's/\"//g' <<< $g >> $hdout; done
+# extract the orthogroups with that HD score
+for g in $(cat $hdout); do
+  echo -e "Processing $g"
+  grep $g ../orthofinder/iv1.3/Results*/Orthogroups.csv >> $hdortho
+  echo -e "\n" >> $hdortho; done
