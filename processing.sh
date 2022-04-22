@@ -9,9 +9,11 @@ grep -ni "^>" allproteins.fasta | grep -i "nif" > grepNif.txt
 # get unique ids of proteins per species
 for name in $(ls *.fasta); do
   echo $name >> fastasummary.txt;
-  grep ">" $name | cut -c 2-9 | sort | uniq >> fastasummary.txt;
+  grep ">" $name | cut -c 2-9 | sort | uniq -c >> fastasummary.txt;
   echo -e "\n" >> fastasummary.txt;
 done
+
+
 
 # Run orthofinder for various inflation values
 for value in {1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2,4,6,10,12}; do
@@ -55,7 +57,10 @@ grep -n "<ID>" allproteins.fasta # show which line has the repetitive IDs
 sed 'm,n!d' file # print the lines from m to n only
 sed -i 'm,nd' file # delete lines ranging from m to n only
 # makeblastdb of all 10 protein sets
-makeblastdb -in allproteins.fasta -dbtype prot -title "Cyanobacteria 10 taxa genome-wide proteins" -parse_seqids -hash_index -out cyano_prot
+makeblastdb -in allproteins.fasta -dbtype prot \
+-title "Cyanobacteria 10 taxa genome-wide proteins" \
+-parse_seqids -hash_index -out cyano_prot
+
 
 # extract sequences from fasta file by ID
 extractseq -sequence fasta::"inputfile":"seqid" -outseq "outfile" -auto
@@ -112,4 +117,4 @@ for g in $(cat temp.txt); do
 for g in $(cat $hdout); do
   echo -e "Processing $g"
   grep $g ../orthofinder/iv1.3/Results*/Orthogroups.csv >> $hdortho
-  echo -e "\n" >> $hdortho; done
+done
