@@ -40,7 +40,6 @@ for (row in 1:nrow(iv1.3)){
 }
 print(paste(count, "profiles matched with the NifH profile."))
 
-# save the output
 write.table(iv1.3out, "phyProfiles/iv1.3.out.txt", sep="\t")
 
 library(dplyr)
@@ -48,53 +47,49 @@ library(tidyr)
 library(data.table)
 library(ggplot2)
 library(reshape2)
+library(RColorBrewer)
 
-drop <- c('Hamming_distance', 'Hd_grep')
-col_order <- c("CW","TA","L","RO","NS","AM","GV","LM","MA","S","Annotation","Status")
+col_drop <- c('Hamming_distance', 'Hd_grep') # drop these cols
+col_orig <- c("AM","LM","CW","RO","GV","L","MA","NS","TA","S","Annotation","Status") # abbrev species name
+col_order <- c("CW","TA","L","RO","NS","AM","GV","LM","MA","S","Annotation","Status") # rearrange by grouping
+brewer.pal <- (3, "PuOr") # get color palette
 
-hd0 <- dplyr::filter(iv1.3out, grepl('hd00', Hd_grep)) %>% select(-one_of(drop))
-hd0Annot <- read.table("hd0annot.tsv", sep="\t", header=TRUE)
-hd0 <- cbind(hd0, hd0Annot$Annotation)
-colnames(hd0) <- c("AM","LM","CW","RO","GV","L","MA","NS","TA","S","Annotation")
-hd0$Status <- "Known"
-hd0$Status[hd0$Annotation=="hypothetical protein "] <- "Unknown"
-hd0["OG0002970","Annotation"] <- "hypothetical protein 2"
-hd0 <- hd0[, col_order]
-
-hd0plot <- ggplot(melt(hd0),
+plotme <- function(x){
+ggplot(melt(x),
 aes(variable, Annotation, fill=Status, alpha=value)) + 
 geom_tile(colour="gray50") + 
 scale_alpha_identity(guide="none") +
+scale_fill_manual(values=c("Known"="#dcdee3","Novel"="#F1A340","Hypothetical"="#998EC3")) +
 coord_equal(expand=0) + 
 theme_bw() + 
 theme(panel.grid.major=element_blank(),
-axis.text.x=element_text(angle=0, hjust=0.5),
-text=element_text(size = 16))
+axis.text.x=element_text(angle=45, hjust=1),
+text=element_text(size = 11)) + 
+labs(x="Species", y="Annotation / Group size")
+}
 
-png("hd0_plot.png", width=1000, height=800)
-hd0plot
-dev.off()
+saveme <- function(x, plotname){
+ggsave(filename=plotname,
+  plot= plotme(x),
+  width = 20, units = "cm",
+  device = "eps")
+  }
 
-hd1 <- dplyr::filter(iv1.3out, grepl('hd01$', Hd_grep)) %>% select(-one_of(drop))
+hd0Annot <- read.table("hd0annot.tsv", sep="\t", header=TRUE)
+hd0 <- dplyr::filter(iv1.3out, grepl('hd00$', Hd_grep)) %>% select(-one_of(col_drop))
+hd0 <- cbind(hd0, hd0Annot$Annotation, hd0Annot$Status)
+colnames(hd0) <- col_orig
+hd0 <- hd0[, col_order]
+saveme(hd0, "hd0_plot.eps")
+
 hd1Annot <- read.table("hd1annot.tsv", sep="\t", header=TRUE)
-hd1 <- cbind(hd1, hd1Annot$Annotation)
-colnames(hd1) <- c("AM","LM","CW","RO","GV","L","MA","NS","TA","S","Annotation")
-hd1$Status <- "Known"
-hd1$Status[c(2,3,6,14,16:21)] <- "Unknown"
-#(other edits here to rename hypothetical proteins as unique names)
+hd1 <- dplyr::filter(iv1.3out, grepl('hd01$', Hd_grep)) %>% select(-one_of(col_drop))
+hd1 <- cbind(hd1, hd1Annot$Annotation, hd1Annot$Status)
+colnames(hd1) <- col_orig
 hd1 <- hd1[, col_order]
-
-hd1plot <- ggplot(melt(hd1),
-       aes(variable, Annotation, fill=Status, alpha=value)) + 
-  geom_tile(colour="gray50") + 
-  scale_alpha_identity(guide="none") +
-  coord_equal(expand=0) + 
-  theme_bw() + 
-  theme(panel.grid.major=element_blank(),
-        axis.text.x=element_text(angle=0, hjust=0.5),
-        text=element_text(size = 16))
-png("hd1_plot.png", width=1000, height=800)
-hd1plot
-dev.off()
+#hd1$Annotation[1] <- "PEP-CTERM sorting domain-containing protein (13)"
+#hd1$Annotation[2] <- "tetratricopeptide repeat protein, CHAT domain*, HP** (11)"
+#hd1$Annotation[6] <- "relaxase/mobilization nuclease domain-containing protein, HP** (7)"
+saveme(hd1, "hd1_plot.eps")
 
 save.image("workspace.Rdata")
