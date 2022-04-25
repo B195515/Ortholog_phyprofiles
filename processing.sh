@@ -4,16 +4,6 @@ for name in $(ls); do
   grep ">" $name | wc -l; 
 done
 
-grep -ni "^>" allproteins.fasta | grep -i "nif" > grepNif.txt
-
-# get unique ids of proteins per species
-for name in $(ls *.fasta); do
-  echo $name >> fastasummary.txt;
-  grep ">" $name | cut -c 2-9 | sort | uniq -c >> fastasummary.txt;
-  echo -e "\n" >> fastasummary.txt;
-done
-
-
 
 # Run orthofinder for various inflation values
 for value in {1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2,4,6,10,12}; do
@@ -28,6 +18,7 @@ for value in {1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2,4,6,10,12}; do
   orthofinder -f iv$value -t 20 -I $value -og
 done
 
+
 # compare Statistics_Overall
 echo "" > NumberofGenes.txt
 for iv in $(ls); do
@@ -35,15 +26,6 @@ for iv in $(ls); do
   head -n17 $iv/Results*/Statistics_Overall.csv >> NumberofGenes.txt;
   echo -e "\n" >> NumberofGenes.txt;
 done
-
-# search in Orthogroups.csv for nifH / dinitrogenase
-echo "" > nifsearch.txt
-for iv in $(ls); do
-  echo $iv >> nifsearch.txt;
-  grep -ni 'nif' $iv/Results*/Orthogroups.csv >> nifsearch.txt;
-  echo -e "\n" >> nifsearch.txt;
-done
-
 
 
 # combine all 10 protein sets
@@ -62,6 +44,20 @@ makeblastdb -in allproteins.fasta -dbtype prot \
 -parse_seqids -hash_index -out cyano_prot
 
 
+# search for nitrogenase iron or other terms
+grep -ni "nitrogenase iron" allproteins.fasta | grep -vi nif > grepNitrogenaseIron.txt
+# then do blast search for the nitrogenase iron proteins
+for protein in {WP_007305800.1,WP_012595104.1,WP_009784199.1,WP_006195291.1,WP_013192381.1,WP_013192322.1,WP_013190628.1}; do
+  input="../proteinsets/allproteins.fasta"
+  database="../proteinsets/cyano_prot"
+  outfile1="${protein}.fasta"
+  outfile2="nitrIron_blast.txt"
+  echo -e "Processing sequence ID $protein"
+  extractseq -sequence fasta::$input:$protein -outseq $outfile1 -auto
+  blastp -query $outfile1 -db $database >> $outfile2
+done
+
+
 # extract sequences from fasta file by ID
 extractseq -sequence fasta::"inputfile":"seqid" -outseq "outfile" -auto
 # Then run blastp on the sequence
@@ -78,25 +74,7 @@ for protein in {WP_012164843.1,WP_012167703.1,WP_006623986.1,WP_007307728.1,WP_0
   blastp -query $outfile1 -db $database >> $outfile2
 done
 
-#---------------19/04/2022
-extractseq -sequence fasta::allproteins.fasta:WP_007304273.1 -outseq WP_007304273.1.fasta -auto
-blastp -query WP_007304273.1.fasta -db cyano_prot >> WP_007304273.1.out
 
-# search for reductase
-grep -ni reductase allproteins.fasta | grep -v oxidoreductase | grep -i nitr > grepReductase.txt
-
-# search for nitrogenase iron
-grep -ni "nitrogenase iron" allproteins.fasta | grep -vi nif > grepNitrogenaseIron.txt
-# then do blast search for the nitrogenase iron proteins
-for protein in {WP_007305800.1,WP_012595104.1,WP_009784199.1,WP_006195291.1,WP_013192381.1,WP_013192322.1,WP_013190628.1}; do
-  input="../proteinsets/allproteins.fasta"
-  database="../proteinsets/cyano_prot"
-  outfile1="${protein}.fasta"
-  outfile2="nitrIron_blast.txt"
-  echo -e "Processing sequence ID $protein"
-  extractseq -sequence fasta::$input:$protein -outseq $outfile1 -auto
-  blastp -query $outfile1 -db $database >> $outfile2
-done
 # search for one of the proteins in all iv orthogroups
 for iv in $(ls); do
   echo $iv >> nitIronsearch.txt;
@@ -104,17 +82,20 @@ for iv in $(ls); do
   echo -e "\n" >> nitIronsearch.txt;
 done
 
-#----------processing after getting Hamming distance
+#----------processing after getting Hamming distance in R
 hd="hd1"
+hdgrep="hd1n"
 hdout="${hd}.txt"
-hdortho="${hd}_orthogroups.txt"
+hdortho="${hd}annot.tsv"
 # get the orthogroup IDs of that HD score
-grep $hd iv1.3.out.txt | cut -f1 > temp.txt
+grep $hdgrep iv1.3.out.txt | cut -f1 > temp.txt
 # remove quotation marks on the IDs
-for g in $(cat temp.txt); do
-	sed 's/\"//g' <<< $g >> $hdout; done
+for ID in $(cat temp.txt); do
+	sed 's/\"//g' <<< $ID >> $hdout
+done
 # extract the orthogroups with that HD score
-for g in $(cat $hdout); do
+# to compile annotations
+for ID in $(cat $hdout); do
   echo -e "Processing $g"
-  grep $g ../orthofinder/iv1.3/Results*/Orthogroups.csv >> $hdortho
+  grep $ID ../orthofinder/iv1.3/Results*/Orthogroups.csv >> $hdortho
 done

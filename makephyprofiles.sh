@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
 # makephyprofiles.sh - convert OrthoFinder output to phylogenetic profiles
+# Modified script from original by Dr. Daniel Barker, Computational and Evolutionary Genomics course 2022
 
 # Process Orthofinder gene count output file to create tab-delimited
 # phylogenetic profiles. This script generates one line of output per
